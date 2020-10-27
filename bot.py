@@ -28,10 +28,17 @@ async def on_message(message):
     if message.content == 'ping':
        await message.channel.send('pong')
 
-@aiocron.crontab('24 * * * *')
-async def crontestjob():
-    channel = client.get_channel(CHANNEL_ID)
-    await channel.send('test message automatique')
+    if message.content == 'temp':
+       await message.channel.send(file=discord.File('temperature.png'))
+
+    if message.content == 'humidité':
+        await message.channel.send(file=discord.File('humidity.png'))
+
+# MESSAGE AUTOMATIQUE
+#@aiocron.crontab('24 * * * *')
+#async def crontestjob():
+#    channel = client.get_channel(CHANNEL_ID)
+#    await channel.send('test message automatique')
 
 @client.event
 async def on_member_join(member):
@@ -40,4 +47,4 @@ async def on_member_join(member):
         f'Hi {member.name}, bienvenue sur mon serv'
     )
 
-client.run('')
+client.run(DISCORD_TOKEN)
