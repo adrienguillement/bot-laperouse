@@ -1,50 +1,80 @@
-import os
 import aiocron
 import discord
+import locale
+import os
+import pdf2image
+import requests
+import time
 
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-client = discord.Client()
+from datetime import datetime, timedelta
+from discord.ext import commands
 
-# ID du channel général
-CHANNEL_ID = 573125866952065025
+from weather import get_temperature, get_rain
 
-def get_channel(channels, channel_name):
-    for channel in client.get_all_channels():
-        print(channel)
-        if channel.name == channel_name:
-            return channel
-    return None
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
+
+PRIVATE_CHANNEL_ID = os.environ.get("PRIVATE_CHANNEL_ID")
+CHANNEL_ID = os.environ.get("CHANNEL_ID")
+
+bot = commands.Bot(command_prefix="!")
+
+# Obtenir l'heure et la date locale
+tomorrow = datetime.today() + timedelta(days=1)
+locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
+
+@bot.command(pass_context=True)
+async def send(ctx, *, message: str):
+    channel = bot.get_channel(int(CHANNEL_ID))
+    print(ctx.message.channel.id)
+    if ctx.message.channel.id == int(PRIVATE_CHANNEL_ID):
+        await channel.send(message)
+    else:
+        await ctx.message.delete()
 
 
-@client.event
-async def on_ready():
-    print('Logged on as', client.user)
+@bot.command(pass_context=True)
+async def temp(ctx):
+    channel = bot.get_channel(int(CHANNEL_ID))
+    if ctx.message.channel.id == int(PRIVATE_CHANNEL_ID):
+        message_intro = "Bonjour à tous, voici les informations pour demain, {} : ".format(tomorrow.strftime("%A %d %B %Y"))
+        temperature = "Température (min - max) : {}".format(get_temperature())
+        rain_message = "Il va potentiellement pleuvoir." if get_rain() else "Il ne devrait pas pleuvoir."
 
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-       return
+        await channel.send("{} \n{} \n{}".format(message_intro, temperature, rain_message))
+    else:
+        await ctx.message.delete()
 
-    if message.content == 'ping':
-       await message.channel.send('pong')
 
-    if message.content == 'temp':
-       await message.channel.send(file=discord.File('temperature.png'))
+@bot.command(pass_context=True)
+async def program(ctx):
+    channel = bot.get_channel(int(CHANNEL_ID))
+    if ctx.message.channel.id == int(PRIVATE_CHANNEL_ID):
+        programme = requests.get("https://www.puydufou.com/france/fr/program-day/download-tomorrow")
 
-    if message.content == 'humidité':
-        await message.channel.send(file=discord.File('humidity.png'))
+        screenshot = pdf2image.convert_from_bytes(programme.content)[0]
+        screenshot.save("screenshot.png", filename="screenshot.png")
 
-# MESSAGE AUTOMATIQUE
-#@aiocron.crontab('24 * * * *')
-#async def crontestjob():
-#    channel = client.get_channel(CHANNEL_ID)
-#    await channel.send('test message automatique')
+        await channel.send(file=discord.File("screenshot.png"))
+    else:
+        await ctx.message.delete()
 
-@client.event
-async def on_member_join(member):
-    await member.create_dm()
-    await member.dm_channel.send(
-        f'Hi {member.name}, bienvenue sur mon serv'
-    )
 
-client.run(DISCORD_TOKEN)
+@aiocron.crontab('36 20 * * *')
+async def crontestjob(ctx):
+    channel = bot.get_channel(int(CHANNEL_ID))
+    message_intro = "Bonjour à tous, voici les informations pour demain, le {} : ".format(time.strftime("%A %d %B %Y", now))
+    temperature = "Température (min - max) : {}".format(get_temperature())
+    rain_message = "Il va potentiellement pleuvoir." if get_rain() else "Il ne devrait pas pleuvoir."
+
+    programme = requests.get("https://www.puydufou.com/france/fr/program-day/download-tomorrow")
+
+    screenshot = pdf2image.convert_from_bytes(programme.content)[0]
+    screenshot.save("screenshot.png", filename="screenshot.png")
+    await channel.send("{} \n{} \n{}".format(message_intro, temperature, rain_message), file=discord.File("screenshot.png"))
+
+
+bot.run(DISCORD_TOKEN)
