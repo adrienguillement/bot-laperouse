@@ -70,11 +70,14 @@ async def crontestjob(ctx):
     temperature = "Température (min - max) : {}".format(get_temperature())
     rain_message = "Il va potentiellement pleuvoir." if get_rain() else "Il ne devrait pas pleuvoir."
 
-    programme = requests.get("https://www.puydufou.com/france/fr/program-day/download-tomorrow")
+    try:
+        programme = requests.get("https://www.puydufou.com/france/fr/program-day/download-tomorrow")
 
-    screenshot = pdf2image.convert_from_bytes(programme.content)[0]
-    screenshot.save("screenshot.png", filename="screenshot.png")
-    await channel.send("{} \n{} \n{}".format(message_intro, temperature, rain_message), file=discord.File("screenshot.png"))
+        screenshot = pdf2image.convert_from_bytes(programme.content)[0]
+        screenshot.save("screenshot.png", filename="screenshot.png")
+        await channel.send("{} \n{} \n{}".format(message_intro, temperature, rain_message), file=discord.File("screenshot.png"))
 
+    except Exception as e:
+        await channel.send("{} \n{} \n{} \nMalheureusement, je n'ai pas pu vous récupérer le programme de demain.".format(message_intro, temperature, rain_message))
 
 bot.run(DISCORD_TOKEN)
